@@ -7,7 +7,7 @@ import util.Log
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Created by Kathi on 07.02.2016.
+  * Created by Peter on 07.02.2016.
   */
 trait SubsArrayList[A <:Referencable] extends Subscriber[A] {
   val list: ArrayBuffer[A] =ArrayBuffer[A]()

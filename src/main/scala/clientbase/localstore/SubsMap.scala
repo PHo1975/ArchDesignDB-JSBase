@@ -9,12 +9,12 @@ import util.Log
 import scala.collection.{Map, mutable}
 
 /**
-  * Created by Kathi on 08.02.2016.
+  * Created by Peter on 08.02.2016.
   */
 trait SubsMap[A <: Referencable]  extends Subscriber[A] {
   def factory(in:DataInput):A
   def update(it:Iterator[A]):Unit
-  def destructor: A=>Unit =(_:A)=>{}
+  def destructor(it:A):Unit ={}
   val map=mutable.LinkedHashMap[Reference,A]()
   var doneCallBack: ()=>Unit=_
 
@@ -27,10 +27,12 @@ trait SubsMap[A <: Referencable]  extends Subscriber[A] {
   override def onLoad(data: Iterator[A]): Unit ={
     map.clear()
     onUpdate(data)
-    if(doneCallBack!=null) {
-      doneCallBack()
-      doneCallBack=null
-    }
+    notifyDoneCallBack()
+  }
+
+  def notifyDoneCallBack():Unit= if(doneCallBack!=null) {
+    doneCallBack()
+    doneCallBack=null
   }
 
   override def onUpdate(data: Iterator[A]): Unit ={
@@ -40,6 +42,7 @@ trait SubsMap[A <: Referencable]  extends Subscriber[A] {
   }
 
   override def onChange(data: A): Unit = {
+    println("on Change "+data.ref)
     map(data.ref)=data
     update(map.valuesIterator)
   }
@@ -55,6 +58,5 @@ trait SubsMap[A <: Referencable]  extends Subscriber[A] {
   override def onChildAdded(data: A): Unit ={
     map(data.ref)=data
     update(map.valuesIterator)
-
   }
 }

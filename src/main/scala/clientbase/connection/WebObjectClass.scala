@@ -7,7 +7,7 @@ import scala.collection.mutable
 
 
 /**
- * Created by Kathi on 24.05.2015.
+ * Created by Peter on 24.05.2015.
  */
 class WebObjectClass(val name:String,val description:String,val id:Int,val ownFields: Seq[AbstractFieldDefinition],val ownFieldSettings:Seq[FieldSetting],
       val ownPropFields: Seq[PropertyFieldDefinition],val ownActions: Iterable[ActionTrait],val superClasses: Seq[Int],val shortFormat: InstFormat,

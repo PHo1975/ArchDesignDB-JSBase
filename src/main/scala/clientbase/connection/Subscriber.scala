@@ -6,7 +6,7 @@ import definition.data.{InstanceData, Referencable, Reference}
 import org.scalajs.dom
 
 /**
- * Created by Kathi on 25.05.2015.
+ * Created by Peter on 25.05.2015.
  */
 trait Subscriber[A <: Referencable] {
   var subsID: Int = -1

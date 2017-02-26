@@ -1,34 +1,33 @@
 package clientbase.connection
 
-import java.io.{DataInputStream,DataInput}
+import java.io.{DataInput, DataInputStream}
 
+import definition.comm._
 import definition.data._
-import definition.expression.{Constant, CommonFuncMan, FunctionManager, Expression}
-import definition.typ.{ClientSystemSettings, SystemSettings}
-
+import definition.expression.{CommonFuncMan, Constant, Expression, FunctionManager}
+import definition.typ.SystemSettings
 import org.scalajs.dom.raw._
 import org.scalajs.dom.window
-import definition.comm._
 import util.Log
 
-import scala.collection.immutable.IndexedSeq
-import scala.scalajs.js.typedarray.{ArrayBufferInputStream, DataView, Int8Array, ArrayBuffer}
+import scala.collection.mutable
+import scala.scalajs.js.typedarray.{ArrayBuffer, ArrayBufferInputStream}
 
 /**
- * Created by Kathi on 05.04.2015.
+ * Created by Peter on 05.04.2015.
  */
 
 object UserSettings extends UserSetting
 
 object WebSocketConnector {
-  val host=window.location.host
+  val host: String =window.location.host
   var webSocket:Option[WebSocket]=None
   var readyCallBack:Option[ () => Unit]=None
   var root:Reference=EMPTY_REFERENCE
   var userID:Int=_
   var editable=false
-  var newSubscriberQueue= collection.mutable.Queue[Subscriber[_]]()
-  var subscriberMap=collection.mutable.HashMap[Int,Subscriber[_]]()
+  var newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
+  var subscriberMap: mutable.HashMap[Int, Subscriber[_]] =collection.mutable.HashMap[Int,Subscriber[_]]()
   var commandResultCallBack:Option[(Constant)=>Unit]=None
   var calendarDataCallBack:Option[(DataInput)=>Unit]=None
 
@@ -40,7 +39,6 @@ object WebSocketConnector {
     ws.onopen= ( ev:Event)=> callback(ws)
     ws.onmessage=onMessage _
     ws.onerror=onError _
-    //ws.binaryType="blob"
   }
 
   private def onMessage(ev:MessageEvent):Unit={
@@ -52,13 +50,14 @@ object WebSocketConnector {
             case a:ArrayBuffer =>
               val nbuffer= new ArrayBufferInputStream(a)
               val inStream=new DataInputStream(nbuffer)
-              handleServerCommands(inStream.readInt(),inStream)
-            case o=> println("unknown "+o)
+              while(nbuffer.available()>0)
+                handleServerCommands(inStream.readInt(),inStream)
+            case o=> Log.e("unknown "+o)
           }
         }
-        fr.onerror=(e:Event)=> println("error "+e)
+        fr.onerror=(e:Event)=> Log.e("error "+e)
         fr.readAsArrayBuffer(b)
-      case o => println("o:"+o.toString)
+      case o => Log.e("o:"+o.toString)
     }
   }
 
@@ -68,12 +67,8 @@ object WebSocketConnector {
     com match {
       case ServerCommands.sendUserSettings=>
         editable=data.readBoolean()
-        //println("Editable:" + editable)
         userID=data.readInt()
-        //println("User ID "+userID)
         root=Reference(data.readInt(),data.readInt())
-        //println("root "+root)
-        //println("Editable "+editable)
         UserSettings.readFromStream(data,data.readInt(),atClient = true)
         sendMessage("SendSystemSettings")
 
@@ -83,7 +78,7 @@ object WebSocketConnector {
       case ServerCommands.sendSubscriptionNotification=> subscriptionNotification(data)
       case ServerCommands.sendCommandResponse=> serverCommandResponse(data)
       case ServerCommands.sendCalendarData=> receiveCalendarData(data)
-      case o=> println("wrong Server command "+o.toString)
+      case o=> Log.e("wrong Server command "+o.toString)
     }
   }
 
@@ -131,7 +126,7 @@ object WebSocketConnector {
     sendMessage("RemoveSubscription|"+subsID)
     if(subscriberMap.contains(subsID))
       subscriberMap.remove(subsID)
-    else println("remove Subs "+subsID+" not found")
+    else Log.e("remove Subs "+subsID+" not found")
   }
 
   def start(appName:String,callback: ()=>Unit):Unit= {
@@ -165,7 +160,7 @@ object WebSocketConnector {
   def acceptSubscription(in:DataInput):Unit= {
     val subsID=in.readInt()
     //println("accept Subs ID "+subsID)
-    if(newSubscriberQueue.isEmpty) println("acceptSubs but queue is empty")
+    if(newSubscriberQueue.isEmpty) Log.e("acceptSubs but queue is empty")
     else {
       val newSubscriber: Subscriber[Referencable] = newSubscriberQueue.dequeue().asInstanceOf[Subscriber[Referencable]]
       if(subsID== -1) newSubscriber.onFailed(in.readUTF())
@@ -201,7 +196,7 @@ object WebSocketConnector {
     val subsID=in.readInt()
     val subscriber: Subscriber[Referencable] =subscriberMap(subsID).asInstanceOf[Subscriber[Referencable]]
     val nt=NotificationType(in.readInt())
-    //println("subs notify subsID:"+subsID+" "+nt)
+    Log.e("subs notify subsID:"+subsID+" "+nt)
     nt match {
       case NotificationType.fieldChanged =>
         subscriber.onChange(subscriber.factory(in))
@@ -222,22 +217,16 @@ object WebSocketConnector {
     val hasError=in.readBoolean
     if(hasError) {
       val error=CommandError.read(in)
-      println( error.getMessage)
+      Log.e( error.getMessage)
     }
-    else {
-      if (in.readBoolean) {
+    else if (in.readBoolean) {
         val data=Expression.readConstant(in)
-        //println("result:" + data)
         commandResultCallBack match {
           case Some(call)=> call(data)
-          case None => println("response without callback, data: "+data)
+          case None => Log.e("response without callback, data: "+data)
         }
-        /*for(call<-commandResultCallBack){
-          call(data)
-          commandResultCallBack=None
-        }*/
       }
-    }
+
   }
 
   def registerCalendarReceiver(callBack:DataInput=>Unit):Unit={
@@ -250,8 +239,4 @@ object WebSocketConnector {
       c(in)
       calendarDataCallBack=None
     }
-
-
-
-
 }
