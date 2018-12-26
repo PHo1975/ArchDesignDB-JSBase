@@ -1,7 +1,8 @@
 package clientbase.connection
 
 import java.io.DataInput
-import definition.data.{ InstanceData, Reference }
+
+import definition.data.{InstanceData, Reference}
 import definition.typ.ClientSystemSettings
 
 /**

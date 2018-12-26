@@ -1,8 +1,9 @@
 package clientbase.localstore
 
-import clientbase.connection.{ Subscriber, WebSocketConnector }
-import definition.data.{ Referencable, Reference }
+import clientbase.connection.{Subscriber, WebSocketConnector}
+import definition.data.{Referencable, Reference}
 import util.Log
+
 import scala.collection.mutable
 
 /**

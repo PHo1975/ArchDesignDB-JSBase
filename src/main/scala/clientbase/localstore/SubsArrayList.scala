@@ -1,8 +1,9 @@
 package clientbase.localstore
 
-import clientbase.connection.{ InstSubscriber, WebSocketConnector }
-import definition.data.{ InstanceData, Referencable, Reference }
+import clientbase.connection.{InstSubscriber, WebSocketConnector}
+import definition.data.{InstanceData, Referencable, Reference}
 import util.Log
+
 import scala.collection.mutable.ArrayBuffer
 
 /**

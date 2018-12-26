@@ -1,15 +1,16 @@
 package clientbase.connection
 
-import java.io.{ DataInput, DataInputStream }
+import java.io.{DataInput, DataInputStream}
+
 import definition.comm._
 import definition.data._
-import definition.expression.{ CommonFuncMan, Constant, Expression, FunctionManager }
+import definition.expression.{CommonFuncMan, Constant, Expression, FunctionManager}
 import definition.typ.SystemSettings
-import org.scalajs.dom.raw._
-import org.scalajs.dom.window
+import org.scalajs.dom._
 import util.Log
+
 import scala.collection.mutable
-import scala.scalajs.js.typedarray.{ ArrayBuffer, ArrayBufferInputStream }
+import scala.scalajs.js.typedarray.{ArrayBuffer, ArrayBufferInputStream}
 import scala.util.control.NonFatal
 
 /**
@@ -20,9 +21,11 @@ object UserSettings extends UserSetting
 
 
 object WebSocketConnector {
+  type LoadCallback= Seq[InstanceData] =>Unit
   val host: String = window.location.host
   val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
   val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
+  val loadDataQueue:mutable.Queue[LoadCallback]=mutable.Queue[LoadCallback]()
   var webSocket: Option[WebSocket] = None
   var readyCallBack: Option[() => Unit] = None
   var root: Reference = EMPTY_REFERENCE
@@ -56,10 +59,13 @@ object WebSocketConnector {
   }
 
   def createPathSubscription[A <: Referencable](ref: Reference, subscriber: Subscriber[A]): Unit = if (!typesLoaded) notifyTypesNotLoaded() else {
-
-    //println("Create Path Subs "+ref)
     newSubscriberQueue += subscriber
     sendMessage("SubscribePath|" + ref.bToString())
+  }
+
+  def loadChildren(ref:Reference,propField:Int,callBack:(Seq[InstanceData])=>Unit):Unit= {
+    loadDataQueue+= callBack
+    sendMessage("LoadData|"+ref.bToString()+"|"+propField.toString)
   }
 
   def pathOpenChild(subsID: Int, ref: Reference): Unit =
@@ -182,6 +188,13 @@ object WebSocketConnector {
       calendarDataCallBack = None
     }
 
+
+  def receiveQueryResponse(input: DataInput):Unit = {
+    val dataList= for (_ <- 0 until input.readInt()) yield Subscriber.readInstance(input)
+    if (loadDataQueue.isEmpty) Log.e("receiveQuery but queue is empty")
+    else loadDataQueue.dequeue()(dataList)
+  }
+
   private def setupWebSocket(callback: WebSocket => Unit): Unit = {
     val ws = new WebSocket((if (host == "localhost") "ws://" else "wss://") + host.toString + "/events")
     webSocket = Option(ws)
@@ -239,6 +252,7 @@ object WebSocketConnector {
       case ServerCommands.sendSubscriptionNotification => subscriptionNotification(data)
       case ServerCommands.sendCommandResponse => serverCommandResponse(data)
       case ServerCommands.sendCalendarData => receiveCalendarData(data)
+      case ServerCommands.sendQueryResponse=> receiveQueryResponse(data)
       case o => Log.e("wrong Server command " + o.toString)
     }
   }

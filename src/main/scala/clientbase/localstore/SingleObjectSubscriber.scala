@@ -1,7 +1,7 @@
 package clientbase.localstore
 
-import clientbase.connection.{ InstSubscriber, Subscriber, WebSocketConnector }
-import definition.data.{ InstanceData, Referencable, Reference }
+import clientbase.connection.{InstSubscriber, Subscriber, WebSocketConnector}
+import definition.data.{InstanceData, Referencable, Reference}
 import util.Log
 
 /**
@@ -12,7 +12,7 @@ trait SingleObjectSubscriber[A <: Referencable] extends Subscriber[A] {
 
   var doneCallBack: Option[() => Unit] = None
 
-  def dataChanged: (A) => Unit
+  def dataChanged: A => Unit
 
   def onLoad(data: Iterator[A]): Unit = {
     onUpdate(data)
@@ -32,7 +32,7 @@ trait SingleObjectSubscriber[A <: Referencable] extends Subscriber[A] {
 }
 
 
-class SingleInstanceSubs(val dataChanged: (InstanceData) => Unit) extends
+class SingleInstanceSubs(val dataChanged: InstanceData => Unit) extends
   SingleObjectSubscriber[InstanceData] with InstSubscriber {
 
   def load(parentRef: Reference, propField: Int, doneListener: Option[() => Unit] = None): Unit = {

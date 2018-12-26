@@ -1,8 +1,10 @@
 package clientbase.connection
 
 import java.io.DataInput
+
 import definition.typ._
 import definition.typ.form.AbstractFormBox
+
 import scala.collection.mutable
 
 
