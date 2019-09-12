@@ -48,16 +48,18 @@ object TableSettings {
   }
 
   def moveColumn(typ: Int, fromIx: Int, toIx: Int): Unit = if (fromIx != toIx) {
-    val oldList = columnData.get(typ) match {
+    val oldList: Seq[ColumnInfo] = columnData.get(typ) match {
       case Some(list) if fromIx < list.size && toIx < list.size => list
       case _ => AllClasses.get.getClassByID(typ).fields.indices.
         map(new ColumnInfo(_, 60))
     }
+    if(fromIx<oldList.size){
     val from = oldList(fromIx)
     val buffer = new ArrayBuffer[ColumnInfo] ++= oldList
     buffer.remove(fromIx)
     buffer.insert(/*(if(toIx>fromIx)-1 else 0)+*/ toIx, from)
     columnData(typ) = buffer
     WebSocketConnector.sendMessage("ChangeTableSetup|" + typ + "§" + buffer.mkString(";"))
+    } else Log.e("MoveColumn fromIx:"+fromIx+" oldList.size:"+oldList.size)
   }
 }

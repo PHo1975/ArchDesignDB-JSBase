@@ -1,16 +1,13 @@
-enablePlugins(ScalaJSPlugin)
 lazy val root:Project= (project in file(".")).
 settings(
   name:="jsbase",
   version:="0.1-SNAPSHOT",
-  scalaVersion:="2.12.4",
+  scalaVersion:="2.12.9",
   scalacOptions ++= Seq( "-deprecation"),
   scalaJSStage in Global := FastOptStage
-)
+).enablePlugins(ScalaJSPlugin)
 libraryDependencies +=  "dbdef" %%% "dbdef" % "0.9-SNAPSHOT"
-//libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.6"
-//libraryDependencies += "org.scala-js" %% "scalajs-javalib-ex" % "0.6.13"
-libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.2"
-libraryDependencies += "com.lihaoyi" %%% "scalatags" % "0.6.7"
+libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.7"
+libraryDependencies += "com.lihaoyi" %%% "scalatags" % "0.6.8"
 
 

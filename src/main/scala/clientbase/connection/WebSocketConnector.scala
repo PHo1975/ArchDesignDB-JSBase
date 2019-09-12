@@ -25,12 +25,14 @@ object WebSocketConnector {
   val host: String = window.location.host
   val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
   val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
-  val loadDataQueue:mutable.Queue[LoadCallback]=mutable.Queue[LoadCallback]()
+  val loadCallbackMap: mutable.HashMap[Int,LoadCallback] = collection.mutable.HashMap[Int, LoadCallback]()
+  //val loadDataQueue:mutable.Queue[LoadCallback]=mutable.Queue[LoadCallback]()
   var webSocket: Option[WebSocket] = None
   var readyCallBack: Option[() => Unit] = None
   var root: Reference = EMPTY_REFERENCE
   var userID: Int = _
   var editable = false
+  var loadTicket=0
   var commandResultCallBack: Option[(Constant) => Unit] = None
   var calendarDataCallBack: Option[(DataInput) => Unit] = None
   var typesLoaded = false
@@ -63,9 +65,10 @@ object WebSocketConnector {
     sendMessage("SubscribePath|" + ref.bToString())
   }
 
-  def loadChildren(ref:Reference,propField:Int,callBack:(Seq[InstanceData])=>Unit):Unit= {
-    loadDataQueue+= callBack
-    sendMessage("LoadData|"+ref.bToString()+"|"+propField.toString)
+  def loadChildren(ref:Reference,propField:Int,callBack: Seq[InstanceData] =>Unit):Unit= {
+    loadTicket+=1
+    loadCallbackMap(loadTicket)=callBack
+    sendMessage("LoadData|"+ref.bToString()+"|"+propField.toString+"|"+loadTicket)
   }
 
   def pathOpenChild(subsID: Int, ref: Reference): Unit =
@@ -88,6 +91,9 @@ object WebSocketConnector {
 
   def writeInstanceField(ref: Reference, field: Int, value: Expression): Unit =
     sendMessage("WriteField|" + ref.sToString + "|" + field + "|" + value.encode)
+
+  def writeInstancesField(refs: Iterable[Referencable],field:Int,value:Expression):Unit=
+    sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString()).mkString("#")+"|"+field+"|"+value.encode)
 
 
   def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Seq[(String, Constant)]): Unit = {
@@ -140,9 +146,12 @@ object WebSocketConnector {
 
   def subscriptionNotification(in: DataInput): Unit = {
     val subsID = in.readInt()
-    val subscriber: Subscriber[Referencable] = subscriberMap(subsID).asInstanceOf[Subscriber[Referencable]]
+    val subscriber: Subscriber[Referencable] = if(subscriberMap.contains(subsID)) subscriberMap(subsID).asInstanceOf[Subscriber[Referencable]] else {
+        Log.e("subscriptionNotification unknown SubsID "+subsID)
+        null
+      }
     val nt = NotificationType(in.readInt())
-    nt match {
+    if(subscriber!=null) nt match {
       case NotificationType.fieldChanged =>
         subscriber.onChange(subscriber.factory(in))
       case NotificationType.childAdded =>
@@ -190,9 +199,13 @@ object WebSocketConnector {
 
 
   def receiveQueryResponse(input: DataInput):Unit = {
+    val dataTicket=input.readInt()
     val dataList= for (_ <- 0 until input.readInt()) yield Subscriber.readInstance(input)
-    if (loadDataQueue.isEmpty) Log.e("receiveQuery but queue is empty")
-    else loadDataQueue.dequeue()(dataList)
+    if(loadCallbackMap.contains(dataTicket)) {
+      loadCallbackMap(dataTicket)(dataList)
+      loadCallbackMap.remove(dataTicket)
+    }
+    else Log.e("receiveQueryResponse unknown Ticket :"+dataTicket+" size:"+dataList.size)
   }
 
   private def setupWebSocket(callback: WebSocket => Unit): Unit = {
@@ -257,8 +270,10 @@ object WebSocketConnector {
     }
   }
 
-  private def onError(ev: ErrorEvent): Unit =
-    Log.e(ev.message + " " + ev.filename + " line:" + ev.lineno)
+  private def onError(e: Event): Unit =
+     Log.e(e.toString)
+
+
 
 
   private def notifyTypesNotLoaded(): Unit = {

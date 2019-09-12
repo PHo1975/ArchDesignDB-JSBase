@@ -40,7 +40,7 @@ trait SubsMap[A <: Referencable] extends Subscriber[A] {
   }
 
   override def onChange(data: A): Unit = {
-    println("on Change " + data.ref)
+    //println("on Change " + data.ref)
     map(data.ref) = data
     update(map.valuesIterator)
   }
