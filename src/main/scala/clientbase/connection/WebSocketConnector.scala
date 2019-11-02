@@ -96,9 +96,14 @@ object WebSocketConnector {
     sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString()).mkString("#")+"|"+field+"|"+value.encode)
 
 
-  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Seq[(String, Constant)]): Unit = {
+  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Seq[ResultElement]): Unit = {
     commandResultCallBack = None
-    sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" + params.map(e => e._1 + "\u2192" + e._2.encode).mkString("\u01c1"))
+    sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" + params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1"))
+  }
+
+  def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Seq[ResultElement],formatValues:Seq[(Int,Constant)]): Unit ={
+    sendMessage("ExecuteCreate|"+owner.sToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
+      params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1"))
   }
 
   def createInstance(typ: Int, owners: Array[OwnerReference], callBack: (Constant) => Unit): Unit = {
