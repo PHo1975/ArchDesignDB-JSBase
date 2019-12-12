@@ -2,7 +2,7 @@ lazy val root:Project= (project in file(".")).
 settings(
   name:="jsbase",
   version:="0.1-SNAPSHOT",
-  scalaVersion:="2.12.9",
+  scalaVersion:="2.12.10",
   scalacOptions ++= Seq( "-deprecation"),
   scalaJSStage in Global := FastOptStage
 ).enablePlugins(ScalaJSPlugin)

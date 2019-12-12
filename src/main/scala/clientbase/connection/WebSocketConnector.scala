@@ -24,7 +24,9 @@ object WebSocketConnector {
   type LoadCallback= Seq[InstanceData] =>Unit
   val host: String = window.location.host
   val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
+  val newBlockSubscriberQueue:mutable.Queue[Subscriber[BlockData]]= collection.mutable.Queue[Subscriber[BlockData]]()
   val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
+  val blockSubscriberMap: mutable.HashMap[Int, Subscriber[BlockData]] = collection.mutable.HashMap[Int, Subscriber[BlockData]]()
   val loadCallbackMap: mutable.HashMap[Int,LoadCallback] = collection.mutable.HashMap[Int, LoadCallback]()
   //val loadDataQueue:mutable.Queue[LoadCallback]=mutable.Queue[LoadCallback]()
   var webSocket: Option[WebSocket] = None
@@ -65,6 +67,11 @@ object WebSocketConnector {
     sendMessage("SubscribePath|" + ref.bToString())
   }
 
+  def createBlockSubscription(parentRef:Reference,field:Int,subscriber:Subscriber[BlockData]):Unit = if(!typesLoaded) notifyTypesNotLoaded() else {
+    newBlockSubscriberQueue +=subscriber
+    sendMessage("SubscribeBlocks|"+parentRef.bToString()+","+field)
+  }
+
   def loadChildren(ref:Reference,propField:Int,callBack: Seq[InstanceData] =>Unit):Unit= {
     loadTicket+=1
     loadCallbackMap(loadTicket)=callBack
@@ -98,12 +105,14 @@ object WebSocketConnector {
 
   def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Seq[ResultElement]): Unit = {
     commandResultCallBack = None
-    sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" + params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1"))
+    sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" +
+      (if(params.isEmpty) " " else params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")))
   }
 
   def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Seq[ResultElement],formatValues:Seq[(Int,Constant)]): Unit ={
-    sendMessage("ExecuteCreate|"+owner.sToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
-      params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1"))
+    sendMessage("ExecuteCreate|"+owner.bToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
+      params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+
+      (if(formatValues.isEmpty)"*" else formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1")))
   }
 
   def createInstance(typ: Int, owners: Array[OwnerReference], callBack: (Constant) => Unit): Unit = {
@@ -214,7 +223,8 @@ object WebSocketConnector {
   }
 
   private def setupWebSocket(callback: WebSocket => Unit): Unit = {
-    val ws = new WebSocket((if (host == "localhost") "ws://" else "wss://") + host.toString + "/events")
+    //println("host="+host)
+    val ws = new WebSocket((if (host.startsWith("localhost")) "ws://" else "wss://") + host.toString + "/events" )
     webSocket = Option(ws)
     if (ws != null) {
       ws.onopen = (_: Event) => callback(ws)
