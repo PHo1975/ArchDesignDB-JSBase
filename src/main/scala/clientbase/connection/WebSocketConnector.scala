@@ -35,8 +35,8 @@ object WebSocketConnector {
   var userID: Int = _
   var editable = false
   var loadTicket=0
-  var commandResultCallBack: Option[(Constant) => Unit] = None
-  var calendarDataCallBack: Option[(DataInput) => Unit] = None
+  var commandResultCallBack: Option[Constant => Unit] = None
+  var calendarDataCallBack: Option[DataInput => Unit] = None
   var typesLoaded = false
 
   FunctionManager.setManager(new CommonFuncMan)
@@ -54,6 +54,10 @@ object WebSocketConnector {
 
   def sendMessage(message: String): Unit = withWebSocket {
     _.send(message)
+  }
+
+  def sendBinary(buffer:ArrayBuffer):Unit= withWebSocket {
+    _.send(buffer)
   }
 
   def createSubscription[A <: Referencable](ref: Reference, field: Int, subscriber: Subscriber[A]): Unit = if (!typesLoaded) notifyTypesNotLoaded() else {
@@ -103,27 +107,47 @@ object WebSocketConnector {
     sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString()).mkString("#")+"|"+field+"|"+value.encode)
 
 
-  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Seq[ResultElement]): Unit = {
+  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Iterable[ResultElement]): Unit = {
     commandResultCallBack = None
     sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" +
       (if(params.isEmpty) " " else params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")))
   }
 
-  def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Seq[ResultElement],formatValues:Seq[(Int,Constant)]): Unit ={
+  def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Iterable[ResultElement],formatValues:Iterable[(Int,Constant)]): Unit ={
     sendMessage("ExecuteCreate|"+owner.bToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
       params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+
       (if(formatValues.isEmpty)"*" else formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1")))
   }
 
-  def createInstance(typ: Int, owners: Array[OwnerReference], callBack: (Constant) => Unit): Unit = {
+  def createInstance(typ: Int, owners: Array[OwnerReference], callBack: Constant => Unit): Unit = {
     commandResultCallBack = Some(callBack)
     sendMessage("CreateInstance|" + typ + "|" + owners.map(_.sToString).mkString(";"))
+  }
+
+  def createBlock(typ:Int,owner:OwnerReference,newData:Array[Byte],callBack: Constant => Unit): Unit = {
+    commandResultCallBack=Some(callBack)
+    sendBinary(TransferBuffersMap.createArrayBuffer(typ,-1,owner,newData))
+  }
+
+  def changeBlock(owner:OwnerReference,newData:BlockData): Unit = {
+    sendBinary(TransferBuffersMap.createArrayBuffer(newData.ref.typ,newData.ref.instance,owner,newData.data))
+  }
+
+  def deleteBlock(ref:Reference,owner:OwnerReference): Unit ={
+    sendMessage("DeleteBlock|"+ref.sToString()+"|"+owner.sToString)
   }
 
   def deleteInstance(ref: Reference): Unit = {
     commandResultCallBack = None
     sendMessage("DeleteInstance|" + ref.sToString)
   }
+
+
+  // ***************************************************
+  // Server command handlers
+  // ***************************************************
+
+
 
   def acceptSubscription(in: DataInput): Unit = {
     val subsID = in.readInt()
@@ -181,8 +205,7 @@ object WebSocketConnector {
     SystemSettings.settings = new WebSystemSettings(in)
   }
 
-  // ***************************************************
-  // Server command handlers
+
 
   def serverCommandResponse(in: DataInput): Unit = {
     val hasError = in.readBoolean

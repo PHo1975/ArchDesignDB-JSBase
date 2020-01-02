@@ -12,7 +12,7 @@ import scala.collection.mutable
   * Created by Peter    on 24.05.2015.
   */
 class WebObjectClass(val name: String, val description: String, val id: Int, val ownFields: Seq[AbstractFieldDefinition], val ownFieldSettings: Seq[FieldSetting],
-                     val ownPropFields: Seq[PropertyFieldDefinition],  val ownBlockPropFields: Seq[BlockPropertyFieldDefinition], val ownActions: Iterable[ActionTrait], val superClasses: Seq[Int], val shortFormat: InstFormat,
+                     val ownPropFields: Seq[PropertyFieldDefinition],  val ownBlockPropFields: Seq[BlockPropertyFieldDefinition], val ownActions: Iterable[ActionTrait], val superClasses: Array[Int], val shortFormat: InstFormat,
                      val resultFormat: InstFormat) extends AbstractObjectClass {
   var enumFields: Map[Int, EnumDefinition] = Map.empty
 
@@ -35,17 +35,18 @@ class WebObjectClass(val name: String, val description: String, val id: Int, val
 
 
 object WebObjectClass {
-  def fromStream(in: DataInput): WebObjectClass =
+  def fromStream(in: DataInput): WebObjectClass = {
     new WebObjectClass(in.readUTF(), in.readUTF(), in.readInt(),
-      for (_ <- 0 until in.readInt()) yield FieldDefinition.fromStream(in),
-      for (_ <- 0 until in.readInt()) yield FieldSetting.fromStream(in),
-      for (_ <- 0 until in.readInt()) yield PropertyFieldDefinition.fromStream(in),
-      for (_ <- 0 until in.readInt()) yield BlockPropertyFieldDefinition.fromStream(in),
+      for (_ <- 0 until in.readInt) yield FieldDefinition.fromStream(in),
+      for (_ <- 0 until in.readInt) yield FieldSetting.fromStream(in),
+      for (_ <- 0 until in.readInt) yield PropertyFieldDefinition.fromStream(in),
+      for (_ <- 0 until in.readInt) yield BlockPropertyFieldDefinition.fromStream(in),
       for (_ <- 0 until in.readInt()) yield ActionDescription.fromStream(in),
-      for (_ <- 0 until in.readInt()) yield in.readInt(),
+      (for (_ <- 0 until in.readInt()) yield in.readInt()).toArray,
       InstFormat.fromString(in.readUTF()),
       InstFormat.fromString(in.readUTF())
     )
+  }
 }
 
 
@@ -55,12 +56,12 @@ class WebClasses extends AllClasses[WebObjectClass] {
 
   def readClasses(in: DataInput): Unit = {
     val numClasses = in.readInt()
-    for (_ <- 0 until numClasses) {
+    for (i <- 0 until numClasses) {
       val cl = WebObjectClass.fromStream(in)
       classList(cl.id) = cl
     }
     val numBlockClasses=in.readInt()
-    for (_<- 0 until numBlockClasses){
+    for (i<- 0 until numBlockClasses){
       val bl=BlockClass.fromStream(in)
       blockClassList(bl.id)=bl
     }

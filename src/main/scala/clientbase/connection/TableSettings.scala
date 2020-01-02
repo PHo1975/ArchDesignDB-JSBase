@@ -17,7 +17,7 @@ class ColumnInfo(val ix: Int, val width: Int) {
 
 
 object TableSettings {
-  protected val columnData: mutable.HashMap[Int, Seq[ColumnInfo]] = collection.mutable.HashMap[Int, Seq[ColumnInfo]]()
+  protected val columnData: mutable.HashMap[Int, Iterable[ColumnInfo]] = collection.mutable.HashMap[Int, Iterable[ColumnInfo]]()
 
   def load(settingsString: String): Unit = {
     settingsString.trim() match {
@@ -40,7 +40,7 @@ object TableSettings {
     }
   }
 
-  def getColumnData(typ: Int): Seq[ColumnInfo] = columnData.getOrElseUpdate(typ, createGenericColData(typ))
+  def getColumnData(typ: Int): Iterable[ColumnInfo] = columnData.getOrElseUpdate(typ, createGenericColData(typ))
 
   def createGenericColData(typ: Int): IndexedSeq[ColumnInfo] = {
     val myClass = AllClasses.get.getClassByID(typ)
@@ -48,13 +48,13 @@ object TableSettings {
   }
 
   def moveColumn(typ: Int, fromIx: Int, toIx: Int): Unit = if (fromIx != toIx) {
-    val oldList: Seq[ColumnInfo] = columnData.get(typ) match {
+    val oldList: Iterable[ColumnInfo] = columnData.get(typ) match {
       case Some(list) if fromIx < list.size && toIx < list.size => list
       case _ => AllClasses.get.getClassByID(typ).fields.indices.
         map(new ColumnInfo(_, 60))
     }
     if(fromIx<oldList.size){
-    val from = oldList(fromIx)
+    val from = oldList.toSeq(fromIx)
     val buffer = new ArrayBuffer[ColumnInfo] ++= oldList
     buffer.remove(fromIx)
     buffer.insert(/*(if(toIx>fromIx)-1 else 0)+*/ toIx, from)

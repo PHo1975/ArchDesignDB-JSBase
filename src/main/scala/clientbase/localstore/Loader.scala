@@ -4,7 +4,7 @@ package clientbase.localstore
   * Created by Peter on 08.02.2016.
   */
 trait Loader {
-  def load(callback: () => Unit)
+  def load(callback: () => Unit):Unit
 }
 
 
