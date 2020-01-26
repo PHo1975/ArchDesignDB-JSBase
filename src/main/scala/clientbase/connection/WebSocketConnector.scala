@@ -24,7 +24,7 @@ object WebSocketConnector {
   type LoadCallback= Seq[InstanceData] =>Unit
   val host: String = window.location.host
   val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
-  val newBlockSubscriberQueue:mutable.Queue[Subscriber[BlockData]]= collection.mutable.Queue[Subscriber[BlockData]]()
+  //val newBlockSubscriberQueue:mutable.Queue[Subscriber[BlockData]]= collection.mutable.Queue[Subscriber[BlockData]]()
   val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
   val blockSubscriberMap: mutable.HashMap[Int, Subscriber[BlockData]] = collection.mutable.HashMap[Int, Subscriber[BlockData]]()
   val loadCallbackMap: mutable.HashMap[Int,LoadCallback] = collection.mutable.HashMap[Int, LoadCallback]()
@@ -72,7 +72,7 @@ object WebSocketConnector {
   }
 
   def createBlockSubscription(parentRef:Reference,field:Int,subscriber:Subscriber[BlockData]):Unit = if(!typesLoaded) notifyTypesNotLoaded() else {
-    newBlockSubscriberQueue +=subscriber
+    newSubscriberQueue +=subscriber
     sendMessage("SubscribeBlocks|"+parentRef.bToString()+","+field)
   }
 
@@ -151,7 +151,7 @@ object WebSocketConnector {
 
   def acceptSubscription(in: DataInput): Unit = {
     val subsID = in.readInt()
-    //println("accept Subs ID "+subsID)
+    println("accept Subs ID "+subsID)
     if (newSubscriberQueue.isEmpty) Log.e("acceptSubs but queue is empty")
     else {
       val newSubscriber: Subscriber[Referencable] = newSubscriberQueue.dequeue().asInstanceOf[Subscriber[Referencable]]

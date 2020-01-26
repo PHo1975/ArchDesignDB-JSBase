@@ -56,8 +56,10 @@ class WebClasses extends AllClasses[WebObjectClass] {
 
   def readClasses(in: DataInput): Unit = {
     val numClasses = in.readInt()
+    //println("Num classes:"+numClasses)
     for (i <- 0 until numClasses) {
       val cl = WebObjectClass.fromStream(in)
+      //println("class "+cl.name+" read done")
       classList(cl.id) = cl
     }
     val numBlockClasses=in.readInt()

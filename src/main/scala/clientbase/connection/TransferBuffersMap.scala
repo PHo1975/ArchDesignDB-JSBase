@@ -18,10 +18,10 @@ object TransferBuffersMap {
     val array: Array[Byte] =getArrayForSize(data.length)
 
     def writeInt(v: Int): Unit =    {
-      array(pos)=(v >>> 24 & 255).toByte
-      array(pos+1)=(v >>> 16 & 255).toByte
-      array(pos+2)=(v >>> 8 & 255).toByte
-      array(pos+4)=(v >>> 0 & 255).toByte
+      array(pos)=((v >>> 24) & 255).toByte
+      array(pos+1)=((v >>> 16) & 255).toByte
+      array(pos+2)=((v >>> 8) & 255).toByte
+      array(pos+3)=((v >>> 0) & 255).toByte
       pos += 4
     }
     def writeByte(v:Byte):Unit= {
@@ -35,6 +35,7 @@ object TransferBuffersMap {
     writeInt(ownerReference.ownerRef.typ)
     writeInt(ownerReference.ownerRef.instance)
     data.copyToArray(array,17,data.length)
+    println("TransBuffer data :"+array.mkString("|"))
     array.toTypedArray.buffer
   }
 }
