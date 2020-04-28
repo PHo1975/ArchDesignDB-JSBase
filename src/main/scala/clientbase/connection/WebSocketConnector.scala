@@ -10,6 +10,7 @@ import org.scalajs.dom._
 import util.Log
 
 import scala.collection.mutable
+import scala.concurrent.{Future, Promise}
 import scala.scalajs.js.typedarray.{ArrayBuffer, ArrayBufferInputStream}
 import scala.util.control.NonFatal
 
@@ -23,25 +24,28 @@ object UserSettings extends UserSetting
 object WebSocketConnector {
   type LoadCallback= Seq[InstanceData] =>Unit
   val host: String = window.location.host
-  val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
+  protected val newSubscriberQueue: mutable.Queue[Subscriber[_]] = collection.mutable.Queue[Subscriber[_]]()
   //val newBlockSubscriberQueue:mutable.Queue[Subscriber[BlockData]]= collection.mutable.Queue[Subscriber[BlockData]]()
-  val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
-  val blockSubscriberMap: mutable.HashMap[Int, Subscriber[BlockData]] = collection.mutable.HashMap[Int, Subscriber[BlockData]]()
-  val loadCallbackMap: mutable.HashMap[Int,LoadCallback] = collection.mutable.HashMap[Int, LoadCallback]()
+  protected val subscriberMap: mutable.HashMap[Int, Subscriber[_]] = collection.mutable.HashMap[Int, Subscriber[_]]()
+  protected val blockSubscriberMap: mutable.HashMap[Int, Subscriber[BlockData]] = collection.mutable.HashMap[Int, Subscriber[BlockData]]()
+  protected val loadCallbackMap: mutable.HashMap[Int,LoadCallback] = collection.mutable.HashMap[Int, LoadCallback]()
   //val loadDataQueue:mutable.Queue[LoadCallback]=mutable.Queue[LoadCallback]()
   var webSocket: Option[WebSocket] = None
-  var readyCallBack: Option[() => Unit] = None
+  protected var readyCallBack: Option[() => Unit] = None
   var root: Reference = EMPTY_REFERENCE
-  var userID: Int = _
-  var editable = false
-  var loadTicket=0
-  var commandResultCallBack: Option[Constant => Unit] = None
-  var calendarDataCallBack: Option[DataInput => Unit] = None
-  var typesLoaded = false
+  protected var _userID: Int = _
+  def userID: Int =_userID
+  protected var _editable = false
+  def editable: Boolean =_editable
+  protected var loadTicket=0
+  //var commandResultCallBack: Option[Constant => Unit] = None
+  protected var commandResultPromise:Option[Promise[Constant]]= None
+  protected var calendarDataCallBack: Option[DataInput => Unit] = None
+  protected var typesLoaded = false
 
   FunctionManager.setManager(new CommonFuncMan)
 
-  def withWebSocket(callback: WebSocket => Unit): Unit = webSocket match {
+  protected def withWebSocket(callback: WebSocket => Unit): Unit = webSocket match {
     case Some(ws) => if (ws.readyState == 1) callback(ws)
                      else {
                        ws.close()
@@ -71,7 +75,7 @@ object WebSocketConnector {
     sendMessage("SubscribePath|" + ref.bToString())
   }
 
-  def createBlockSubscription(parentRef:Reference,field:Int,subscriber:Subscriber[BlockData]):Unit = if(!typesLoaded) notifyTypesNotLoaded() else {
+  def createBlockSubscription[A <: Referencable](parentRef:Reference,field:Int,subscriber:Subscriber[A]):Unit = if(!typesLoaded) notifyTypesNotLoaded() else {
     newSubscriberQueue +=subscriber
     sendMessage("SubscribeBlocks|"+parentRef.bToString()+","+field)
   }
@@ -106,27 +110,40 @@ object WebSocketConnector {
   def writeInstancesField(refs: Iterable[Referencable],field:Int,value:Expression):Unit=
     sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString()).mkString("#")+"|"+field+"|"+value.encode)
 
-
-  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Iterable[ResultElement]): Unit = {
-    commandResultCallBack = None
-    sendMessage("Execute|" + instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" +
-      (if(params.isEmpty) " " else params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")))
+  protected def createCommandResultPromise(): Future[Constant] ={
+    if(commandResultPromise.isDefined) throw new IllegalArgumentException("CommandPromise already defined")
+    else {
+      val p=Promise[Constant]()
+      commandResultPromise=Some(p)
+      p.future
+    }
   }
 
-  def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Iterable[ResultElement],formatValues:Iterable[(Int,Constant)]): Unit ={
+  def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Iterable[ResultElement]): Future[Constant] = {
+    val ret=createCommandResultPromise()
+    sendMessage("Execute|"+owner.sToString+"|"+ instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" +
+      (if(params.isEmpty) " " else params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")))
+    ret
+  }
+
+  def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Iterable[ResultElement],formatValues:Iterable[(Int,Constant)]): Future[Constant] ={
+    val ret=createCommandResultPromise()
     sendMessage("ExecuteCreate|"+owner.bToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
       params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+
       (if(formatValues.isEmpty)"*" else formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1")))
+    ret
   }
 
-  def createInstance(typ: Int, owners: Array[OwnerReference], callBack: Constant => Unit): Unit = {
-    commandResultCallBack = Some(callBack)
+  def createInstance(typ: Int, owners: Array[OwnerReference]): Future[Constant] = {
+    val ret=createCommandResultPromise()
     sendMessage("CreateInstance|" + typ + "|" + owners.map(_.sToString).mkString(";"))
+    ret
   }
 
-  def createBlock(typ:Int,owner:OwnerReference,newData:Array[Byte],callBack: Constant => Unit): Unit = {
-    commandResultCallBack=Some(callBack)
+  def createBlock(typ:Int,owner:OwnerReference,newData:Array[Byte]): Future[Constant] = {
+    val ret=createCommandResultPromise()
     sendBinary(TransferBuffersMap.createArrayBuffer(typ,-1,owner,newData))
+    ret
   }
 
   def changeBlock(owner:OwnerReference,newData:BlockData): Unit = {
@@ -138,7 +155,7 @@ object WebSocketConnector {
   }
 
   def deleteInstance(ref: Reference): Unit = {
-    commandResultCallBack = None
+    commandResultPromise = None
     sendMessage("DeleteInstance|" + ref.sToString)
   }
 
@@ -149,7 +166,7 @@ object WebSocketConnector {
 
 
 
-  def acceptSubscription(in: DataInput): Unit = {
+  protected def acceptSubscription(in: DataInput): Unit = {
     val subsID = in.readInt()
     println("accept Subs ID "+subsID)
     if (newSubscriberQueue.isEmpty) Log.e("acceptSubs but queue is empty")
@@ -165,7 +182,7 @@ object WebSocketConnector {
     }
   }
 
-  def loadTypes(in: DataInput): Unit = {
+  protected def loadTypes(in: DataInput): Unit = {
     try {
       val classList = new WebClasses
       classList.readClasses(in)
@@ -177,12 +194,12 @@ object WebSocketConnector {
     for (c <- readyCallBack) c()
   }
 
-  def loadSystemSettings(in: DataInput): Unit = {
+  protected def loadSystemSettings(in: DataInput): Unit = {
     SystemSettings.settings = new WebSystemSettings(in)
     sendMessage("SendTypes")
   }
 
-  def subscriptionNotification(in: DataInput): Unit = {
+  protected def subscriptionNotification(in: DataInput): Unit = {
     val subsID = in.readInt()
     val subscriber: Subscriber[Referencable] = if(subscriberMap.contains(subsID)) subscriberMap(subsID).asInstanceOf[Subscriber[Referencable]] else {
         Log.e("subscriptionNotification unknown SubsID "+subsID)
@@ -198,29 +215,35 @@ object WebSocketConnector {
         subscriber.onDelete(Reference(in))
       case NotificationType.sendData => subscriber.onLoad(readList(in, subscriber.factory))
       case NotificationType.updateUndo => subscriber.onUpdate(readList(in, subscriber.factory))
+      case o=> Log.e("unknown Notification "+o)
     }
   }
 
-  def sendUserSettings(in: DataInput): Unit = {
+  protected def sendUserSettings(in: DataInput): Unit = {
     SystemSettings.settings = new WebSystemSettings(in)
   }
 
 
 
-  def serverCommandResponse(in: DataInput): Unit = {
+  protected def serverCommandResponse(in: DataInput): Unit = {
+    println("Server Command Response, callback "+commandResultPromise)
     val hasError = in.readBoolean
     if (hasError) {
       val error = CommandError.read(in)
       Log.e(error.getMessage)
+      for(p<-commandResultPromise)
+        p.failure(error)
     }
     else if (in.readBoolean) {
       val data = Expression.readConstant(in)
-      commandResultCallBack match {
-        case Some(call) => call(data)
+      commandResultPromise match {
+        case Some(p) =>
+          commandResultPromise=None
+          p.success(data)
         case None => Log.e("response without callback, data: " + data)
       }
     }
-
+    commandResultPromise=None
   }
 
   def registerCalendarReceiver(callBack: DataInput => Unit): Unit = {
@@ -228,14 +251,14 @@ object WebSocketConnector {
     sendMessage("CalendarRoots")
   }
 
-  def receiveCalendarData(in: DataInput): Unit =
+  protected def receiveCalendarData(in: DataInput): Unit =
     for (c <- calendarDataCallBack) {
       c(in)
       calendarDataCallBack = None
     }
 
 
-  def receiveQueryResponse(input: DataInput):Unit = {
+  protected def receiveQueryResponse(input: DataInput):Unit = {
     val dataTicket=input.readInt()
     val dataList= for (_ <- 0 until input.readInt()) yield Subscriber.readInstance(input)
     if(loadCallbackMap.contains(dataTicket)) {
@@ -281,8 +304,8 @@ object WebSocketConnector {
     //println("server command "+com)
     com match {
       case ServerCommands.sendUserSettings =>
-        editable = data.readBoolean()
-        userID = data.readInt()
+        _editable = data.readBoolean()
+        _userID = data.readInt()
         root = Reference(data.readInt(), data.readInt())
         UserSettings.readFromStream(data, data.readInt(), atClient = true)
         val numKeyStrokeGroups = data.readInt()
