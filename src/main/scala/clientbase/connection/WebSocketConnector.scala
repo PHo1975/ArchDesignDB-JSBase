@@ -226,7 +226,7 @@ object WebSocketConnector {
 
 
   protected def serverCommandResponse(in: DataInput): Unit = {
-    println("Server Command Response, callback "+commandResultPromise)
+    println("Server Command Response, callback "+commandResultPromise.isDefined)
     val hasError = in.readBoolean
     if (hasError) {
       val error = CommandError.read(in)
@@ -239,7 +239,11 @@ object WebSocketConnector {
       commandResultPromise match {
         case Some(p) =>
           commandResultPromise=None
-          p.success(data)
+          try {
+            p.success(data)
+          } catch {
+            case NonFatal(e)=>Log.e("Sending success",e)
+          }
         case None => Log.e("response without callback, data: " + data)
       }
     }
@@ -269,8 +273,9 @@ object WebSocketConnector {
   }
 
   private def setupWebSocket(callback: WebSocket => Unit): Unit = {
-    //println("host="+host)
-    val ws = new WebSocket((if (host.startsWith("localhost")) "ws://" else "wss://") + host.toString + "/events" )
+    println("host="+host)
+    println("prot:"+window.location.port)
+    val ws = new WebSocket((if (host.startsWith("localhost")||window.location.port=="1080") "ws://" else "wss://") + host.toString + "/events" )
     webSocket = Option(ws)
     if (ws != null) {
       ws.onopen = (_: Event) => callback(ws)
