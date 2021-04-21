@@ -67,27 +67,27 @@ object WebSocketConnector {
   def createSubscription[A <: Referencable](ref: Reference, field: Int, subscriber: Subscriber[A]): Unit = if (!typesLoaded) notifyTypesNotLoaded() else {
     //println("Create Subs ref:"+ref+" field: "+field)
     newSubscriberQueue += subscriber
-    sendMessage("CreateSubscription|" + ref.bToString() + "," + field)
+    sendMessage("CreateSubscription|" + ref.bToString + "," + field)
   }
 
   def createPathSubscription[A <: Referencable](ref: Reference, subscriber: Subscriber[A]): Unit = if (!typesLoaded) notifyTypesNotLoaded() else {
     newSubscriberQueue += subscriber
-    sendMessage("SubscribePath|" + ref.bToString())
+    sendMessage("SubscribePath|" + ref.bToString)
   }
 
   def createBlockSubscription[A <: Referencable](parentRef:Reference,field:Int,subscriber:Subscriber[A]):Unit = if(!typesLoaded) notifyTypesNotLoaded() else {
     newSubscriberQueue +=subscriber
-    sendMessage("SubscribeBlocks|"+parentRef.bToString()+","+field)
+    sendMessage("SubscribeBlocks|"+parentRef.bToString+","+field)
   }
 
   def loadChildren(ref:Reference,propField:Int,callBack: Seq[InstanceData] =>Unit):Unit= {
     loadTicket+=1
     loadCallbackMap(loadTicket)=callBack
-    sendMessage("LoadData|"+ref.bToString()+"|"+propField.toString+"|"+loadTicket)
+    sendMessage("LoadData|"+ref.bToString+"|"+propField.toString+"|"+loadTicket)
   }
 
   def pathOpenChild(subsID: Int, ref: Reference): Unit =
-    if (!typesLoaded) notifyTypesNotLoaded() else sendMessage("OpenChild|" + subsID + "|" + ref.bToString())
+    if (!typesLoaded) notifyTypesNotLoaded() else sendMessage("OpenChild|" + subsID + "|" + ref.bToString)
 
   def pathJumpUp(subsID: Int, pos: Int): Unit =
     if (!typesLoaded) notifyTypesNotLoaded() else sendMessage("JumpUp|" + subsID + "|" + pos)
@@ -108,7 +108,7 @@ object WebSocketConnector {
     sendMessage("WriteField|" + ref.sToString + "|" + field + "|" + value.encode)
 
   def writeInstancesField(refs: Iterable[Referencable],field:Int,value:Expression):Unit=
-    sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString()).mkString("#")+"|"+field+"|"+value.encode)
+    sendMessage("WriteInstancesField|"+refs.map(_.ref.bToString).mkString("#")+"|"+field+"|"+value.encode)
 
   protected def createCommandResultPromise(): Future[Constant] ={
     if(commandResultPromise.isDefined) throw new IllegalArgumentException("CommandPromise already defined")
@@ -121,14 +121,14 @@ object WebSocketConnector {
 
   def executeAction(owner: OwnerReference, instList: Iterable[Referencable], actionName: String, params: Iterable[ResultElement]): Future[Constant] = {
     val ret=createCommandResultPromise()
-    sendMessage("Execute|"+owner.sToString+"|"+ instList.map(_.ref.bToString()).mkString(";") + "|" + actionName + "|" +
+    sendMessage("Execute|"+owner.sToString+"|"+ instList.map(_.ref.bToString).mkString(";") + "|" + actionName + "|" +
       (if(params.isEmpty) " " else params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")))
     ret
   }
 
   def executeCreateAction(owner:Reference,propField:Byte,createType:Int,actionName:String,params:Iterable[ResultElement],formatValues:Iterable[(Int,Constant)]): Future[Constant] ={
     val ret=createCommandResultPromise()
-    sendMessage("ExecuteCreate|"+owner.bToString()+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
+    sendMessage("ExecuteCreate|"+owner.bToString+"|"+propField.toString+"|"+createType.toString+"|"+actionName+"|"+
       params.map(e => e.paramName + "\u2192" + e.result.encode).mkString("\u01c1")+"|"+
       (if(formatValues.isEmpty)"*" else formatValues.map(f=> f._1.toString+"\u2192"+f._2.encode).mkString("\u01c1")))
     ret
@@ -151,7 +151,7 @@ object WebSocketConnector {
   }
 
   def deleteBlock(ref:Reference,owner:OwnerReference): Unit ={
-    sendMessage("DeleteBlock|"+ref.sToString()+"|"+owner.sToString)
+    sendMessage("DeleteBlock|"+ref.sToString+"|"+owner.sToString)
   }
 
   def deleteInstance(ref: Reference): Unit = {
@@ -275,13 +275,13 @@ object WebSocketConnector {
   private def setupWebSocket(callback: WebSocket => Unit): Unit = {
     println("host="+host)
     println("prot:"+window.location.port)
-    val ws = new WebSocket((if (host.startsWith("localhost")||window.location.port=="1080") "ws://" else "wss://") + host.toString + "/events" )
+    val ws = new WebSocket((if (host.startsWith("localhost")||window.location.port=="1080") "ws://" else "wss://") + host + "/events" )
     webSocket = Option(ws)
     if (ws != null) {
       ws.onopen = (_: Event) => callback(ws)
       ws.onmessage = onMessage _
       ws.onerror = onError _
-    } else println("websocket==null " + host.toString)
+    } else println("websocket==null " + host)
   }
 
   private def onMessage(ev: MessageEvent): Unit =
