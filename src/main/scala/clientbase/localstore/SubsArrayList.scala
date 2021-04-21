@@ -14,7 +14,7 @@ trait SubsArrayList[A <: Referencable] extends InstSubscriber {
   var doneCallBack: () => Unit = _
 
   def load(parentRef: Reference, propField: Int, doneListener: () => Unit): Unit = {
-    list.clear
+    list.clear()
     doneCallBack = doneListener
     if (subsID == -1) WebSocketConnector.createSubscription(parentRef, propField, this)
     else Log.e("Load parentRef:" + parentRef + " propfield:" + propField + " subsID != -1 ")

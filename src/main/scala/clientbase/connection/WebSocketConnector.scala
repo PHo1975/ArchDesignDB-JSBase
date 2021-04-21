@@ -1,7 +1,6 @@
 package clientbase.connection
 
 import java.io.{DataInput, DataInputStream}
-
 import definition.comm._
 import definition.data._
 import definition.expression.{CommonFuncMan, Constant, Expression, FunctionManager}
@@ -11,7 +10,7 @@ import util.Log
 
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
-import scala.scalajs.js.typedarray.{ArrayBuffer, ArrayBufferInputStream}
+import scala.scalajs.js.typedarray.{ArrayBuffer}
 import scala.util.control.NonFatal
 
 /**

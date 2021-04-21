@@ -19,7 +19,7 @@ trait SingleObjectSubscriber[A <: Referencable] extends Subscriber[A] {
     for (l <- doneCallBack) l()
   }
 
-  def onUpdate(data: Iterator[A]): Unit = if (data.hasNext) onChange(data.next)
+  def onUpdate(data: Iterator[A]): Unit = if (data.hasNext) onChange(data.next())
 
   def onChange(data: A): Unit = {
     value = data

@@ -7,7 +7,7 @@ settings(
   scalaJSStage in Global := FastOptStage
 ).enablePlugins(ScalaJSPlugin)
 libraryDependencies +=  "dbdef" %%% "dbdef" % "0.9-SNAPSHOT"
-libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.7"
-libraryDependencies += "com.lihaoyi" %%% "scalatags" % "0.8.2"
+libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "1.1.0"
+libraryDependencies += "com.lihaoyi" %%% "scalatags" % "0.9.2"
 
 
